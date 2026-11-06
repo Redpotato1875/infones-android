@@ -1,0 +1,61 @@
+name: Build APK
+
+# 推送到任意分支、打 tag、或手动触发时，在 GitHub 云端编译出 APK。
+# 这是「远程生成 APK」的可行路径：无需本机装 NDK/SDK，云端 ubuntu 环境编译，
+# 构建产物作为 artifact 供下载（约 5~10 分钟）。
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 配置 Android SDK + NDK + CMake
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            ndk;25.2.9519653
+            cmake;3.22.1
+            platforms;android-34
+            build-tools;34.0.0
+
+      - name: 配置 Gradle 8.7
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: 编译 debug APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: 上传 APK 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: infones-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: 编译 release APK（仅打 tag 时）
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: android
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: 上传 release APK
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: infones-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 90

@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.infones.app'
+    compileSdk 34
+    ndkVersion '25.2.9519653'   // 固定 NDK 版本，保证 CI 与本地一致
+
+    defaultConfig {
+        applicationId "com.infones.app"
+        minSdk 26          // AAudio 需要 API 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        externalNativeBuild {
+            cmake {
+                cppFlags '-std=c++11'
+                // 32 位 arm 保证与低端机兼容；x86_64 供模拟器调试
+                abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+}

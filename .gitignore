@@ -1,0 +1,29 @@
+# 工作区记忆与身份文件（含个人上下文，不可提交）
+.workbuddy/
+
+# Android 构建产物
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+android/captures/
+android/.idea/
+android/*.iml
+*.apk
+*.aab
+*.so
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
+
+# ROM 与存档（版权 + 体积，不入库）
+*.nes
+*.srm
+rom/
