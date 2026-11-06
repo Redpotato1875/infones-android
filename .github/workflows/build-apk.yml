@@ -1,8 +1,7 @@
 name: Build APK
 
-# 推送到任意分支、打 tag、或手动触发时，在 GitHub 云端编译出 APK。
-# 这是「远程生成 APK」的可行路径：无需本机装 NDK/SDK，云端 ubuntu 环境编译，
-# 构建产物作为 artifact 供下载（约 5~10 分钟）。
+# 推送到 main / 打 v* tag / 手动触发时，在 GitHub 云端编译出 APK。
+# 无需本机装 NDK/SDK，构建产物作为 artifact 供下载（约 5~10 分钟）。
 on:
   push:
     branches: [ main, master ]
@@ -22,21 +21,34 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: 配置 Android SDK 环境
-        uses: android-actions/setup-android@v3
+      # ubuntu-latest 镜像自带 Android SDK（/usr/local/lib/android/sdk）。
+      # 不使用 android-actions/setup-android：该 action 会默认安装已废弃的
+      # 'tools' 包，在 cmdline-tools 16.0 上报 "Failed to find package 'tools'"；
+      # 其 packages 多行输入也会被当成单个包名。这里直接调用 sdkmanager。
+      - name: 安装 Android SDK / NDK / CMake
+        run: |
+          set -e
+          SDK=/usr/local/lib/android/sdk
+          SDKM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)
+          if [ -z "$SDKM" ]; then echo "找不到 sdkmanager"; exit 1; fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKM")" >> "$GITHUB_PATH"
+          yes | "$SDKM" --sdk_root="$SDK" --licenses > /dev/null || true
+          "$SDKM" --sdk_root="$SDK" --install "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1"
+          if ! "$SDKM" --sdk_root="$SDK" --install "ndk;25.2.9519653"; then
+            echo "::error::NDK 25.2.9519653 不可用，当前可选版本："
+            "$SDKM" --sdk_root="$SDK" --list 2>/dev/null | grep -i "ndk;" | head -30 || true
+            exit 1
+          fi
+          "$SDKM" --sdk_root="$SDK" --list_installed 2>/dev/null | grep -E "ndk;|cmake;|platforms;android-34|build-tools;34" || true
 
-      - name: 接受 Android SDK 许可证
-        run: yes | sdkmanager --licenses > /dev/null || true
-
-      # 必须逐个显式传包名：setup-android 的 packages 多行输入会被当作单个包名，
-      # 导致 sdkmanager 报 "Failed to find package 'ndk;...\ncmake;...'"。
-      - name: 安装 SDK / NDK / CMake
-        run: sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;25.2.9519653" "cmake;3.22.1"
-
-      - name: 配置 Gradle 8.7
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.7'
+      - name: 安装 Gradle 8.7
+        run: |
+          curl -fsSL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          echo "/opt/gradle-8.7/bin" >> "$GITHUB_PATH"
+          /opt/gradle-8.7/bin/gradle --version | head -8
 
       - name: 编译 debug APK
         working-directory: android
