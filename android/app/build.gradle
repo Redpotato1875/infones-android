@@ -14,11 +14,13 @@ android {
         versionCode 1
         versionName "1.0"
 
+        ndk {
+            // 64 位 arm 为主，保留 32 位 arm 兼容低端机；x86_64 供模拟器调试
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
         externalNativeBuild {
             cmake {
                 cppFlags '-std=c++11'
-                // 32 位 arm 保证与低端机兼容；x86_64 供模拟器调试
-                abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
             }
         }
     }
